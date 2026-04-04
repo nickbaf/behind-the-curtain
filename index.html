@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Behind the Curtain</title>
+    <meta name="description" content="An exclusive evening of live music. One night only." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Cinzel:wght@400;600;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+
+    <!-- ═══════════════════════════════════════ INVITE STAGE ═══ -->
+    <div class="stage" id="stage" aria-label="Concert invite">
+
+      <!-- Spotlight beams behind everything -->
+      <div class="spotlights">
+        <div class="spotlight spotlight--left"></div>
+        <div class="spotlight spotlight--center"></div>
+        <div class="spotlight spotlight--right"></div>
+      </div>
+
+      <!-- Floating particles -->
+      <div class="particles" id="particles"></div>
+
+      <!-- ─── Invite content (revealed after curtain opens) ─── -->
+      <div class="invite" id="invite" aria-live="polite">
+        <div class="invite__inner">
+
+          <p class="invite__eyebrow">One Night Only &mdash; An Exclusive Evening</p>
+
+          <h1 class="invite__title">
+            <span class="invite__title-line">Behind</span>
+            <span class="invite__title-line invite__title-line--italic">the</span>
+            <span class="invite__title-line">Curtain</span>
+          </h1>
+
+          <div class="invite__divider">
+            <span class="invite__divider-ornament">✦</span>
+            <span class="invite__divider-line"></span>
+            <span class="invite__divider-ornament">✦</span>
+          </div>
+
+          <div class="invite__details">
+            <div class="invite__detail">
+              <span class="invite__detail-label">Date</span>
+              <span class="invite__detail-value">Saturday, 14th June 2026</span>
+            </div>
+            <div class="invite__detail">
+              <span class="invite__detail-label">Venue</span>
+              <span class="invite__detail-value">The Grand Theatre, Athens</span>
+            </div>
+            <div class="invite__detail">
+              <span class="invite__detail-label">Doors Open</span>
+              <span class="invite__detail-value">20:00 &mdash; Show at 21:30</span>
+            </div>
+            <div class="invite__detail">
+              <span class="invite__detail-label">Featuring</span>
+              <span class="invite__detail-value">The Velvet Ensemble &amp; Special Guests</span>
+            </div>
+          </div>
+
+          <div class="invite__divider">
+            <span class="invite__divider-ornament">✦</span>
+            <span class="invite__divider-line"></span>
+            <span class="invite__divider-ornament">✦</span>
+          </div>
+
+          <p class="invite__tagline">
+            "Where the music ends,<br />
+            <em>the magic begins."</em>
+          </p>
+
+          <a href="#" class="invite__cta" aria-label="Reserve your seat">
+            Reserve Your Seat
+          </a>
+
+          <p class="invite__footer">
+            Black tie preferred &nbsp;&bull;&nbsp; Limited capacity &nbsp;&bull;&nbsp; Seats allocated on arrival
+          </p>
+
+        </div>
+      </div>
+
+    </div><!-- /stage -->
+
+    <!-- ═══════════════════════════════════════ CURTAIN ════════ -->
+    <div class="curtain-wrap" id="curtainWrap">
+
+      <!-- Gold rod across the top -->
+      <div class="curtain-rod" aria-hidden="true">
+        <div class="curtain-rod__bar"></div>
+        <div class="curtain-rod__rings">
+          <!-- rings injected by JS -->
+        </div>
+        <div class="curtain-rod__finial curtain-rod__finial--left"></div>
+        <div class="curtain-rod__finial curtain-rod__finial--right"></div>
+      </div>
+
+      <!-- Left panel -->
+      <div class="curtain curtain--left" id="curtainLeft" role="button" tabindex="0" aria-label="Click to reveal the invitation">
+        <div class="curtain__fold"></div>
+        <div class="curtain__fold"></div>
+        <div class="curtain__fold"></div>
+        <div class="curtain__fold"></div>
+        <div class="curtain__fold"></div>
+        <div class="curtain__tassel" aria-hidden="true"></div>
+      </div>
+
+      <!-- Right panel -->
+      <div class="curtain curtain--right" id="curtainRight" role="button" tabindex="0" aria-label="Click to reveal the invitation">
+        <div class="curtain__fold"></div>
+        <div class="curtain__fold"></div>
+        <div class="curtain__fold"></div>
+        <div class="curtain__fold"></div>
+        <div class="curtain__fold"></div>
+        <div class="curtain__tassel" aria-hidden="true"></div>
+      </div>
+
+      <!-- Hint overlay (shown after idle timeout) -->
+      <div class="hint" id="hint" aria-hidden="true">
+        <div class="hint__icon">👆</div>
+        <p class="hint__text">Click to reveal</p>
+      </div>
+
+    </div><!-- /curtain-wrap -->
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,609 @@
+/* ════════════════════════════════════════════════════════════════
+   BEHIND THE CURTAIN — stylesheet
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Custom properties ─────────────────────────────────────────── */
+:root {
+  --curtain-red:      #8B0000;
+  --curtain-red-mid:  #A00000;
+  --curtain-red-hi:   #B22222;
+  --curtain-red-dark: #5C0000;
+  --curtain-shadow:   #3A0000;
+
+  --gold:             #C9A84C;
+  --gold-light:       #E8C96B;
+  --gold-dark:        #8B6914;
+
+  --stage-bg:         #0A0A12;
+  --stage-mid:        #111122;
+
+  --text-cream:       #F5ECD7;
+  --text-gold:        #C9A84C;
+  --text-muted:       #9A8872;
+
+  --font-display:     'Cinzel', serif;
+  --font-body:        'Cormorant Garamond', serif;
+
+  --rod-height:       28px;
+  --ring-size:        18px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--stage-bg);
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--text-cream);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   STAGE (behind curtain)
+   ════════════════════════════════════════════════════════════════ */
+.stage {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 70% at 50% 0%,   #1a1a3a 0%, transparent 70%),
+    radial-gradient(ellipse 100% 60% at 50% 100%, #0d0d1a 0%, transparent 80%),
+    linear-gradient(180deg, #0c0c1e 0%, #080810 50%, #04040c 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 0;
+}
+
+/* ── Spotlight beams ───────────────────────────────────────────── */
+.spotlights {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.spotlight {
+  position: absolute;
+  top: -10%;
+  width: 320px;
+  height: 110%;
+  border-radius: 0 0 60% 60%;
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: spotlightFlicker 8s ease-in-out infinite;
+}
+
+.spotlight--left {
+  left: 15%;
+  transform: rotate(-15deg);
+  transform-origin: top center;
+  background: radial-gradient(ellipse at top, rgba(255, 230, 150, 0.18) 0%, transparent 70%);
+  animation-delay: 0s;
+}
+
+.spotlight--center {
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at top, rgba(255, 220, 120, 0.14) 0%, transparent 65%);
+  animation-delay: 1.5s;
+}
+
+.spotlight--right {
+  right: 15%;
+  transform: rotate(15deg);
+  transform-origin: top center;
+  background: radial-gradient(ellipse at top, rgba(255, 230, 150, 0.18) 0%, transparent 70%);
+  animation-delay: 3s;
+}
+
+@keyframes spotlightFlicker {
+  0%, 100% { opacity: 0.6; }
+  25%       { opacity: 0.8; }
+  50%       { opacity: 0.5; }
+  75%       { opacity: 0.9; }
+}
+
+/* ── Floating particles ────────────────────────────────────────── */
+.particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--gold);
+  opacity: 0;
+  animation: particleDrift var(--dur, 6s) ease-in-out var(--delay, 0s) infinite;
+}
+
+@keyframes particleDrift {
+  0% {
+    transform: translateY(100vh) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.2; }
+  100% {
+    transform: translateY(-10vh) translateX(var(--drift, 30px)) scale(1);
+    opacity: 0;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   INVITE CONTENT
+   ════════════════════════════════════════════════════════════════ */
+.invite {
+  position: relative;
+  z-index: 1;
+  width: min(680px, 90vw);
+  text-align: center;
+  padding: 2rem;
+}
+
+.invite__inner > * {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.invite__eyebrow {
+  font-family: var(--font-body);
+  font-size: clamp(0.75rem, 1.5vw, 0.9rem);
+  font-weight: 300;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text-gold);
+  margin-bottom: 1.5rem;
+}
+
+.invite__title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(3rem, 10vw, 7.5rem);
+  line-height: 0.9;
+  letter-spacing: 0.03em;
+  color: var(--text-cream);
+  text-shadow:
+    0 0 60px rgba(201, 168, 76, 0.4),
+    0 0 120px rgba(201, 168, 76, 0.15);
+  margin-bottom: 1.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05em;
+}
+
+.invite__title-line {
+  display: block;
+}
+
+.invite__title-line--italic {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 0.5em;
+  letter-spacing: 0.25em;
+  color: var(--text-gold);
+  text-shadow: none;
+  margin: 0.1em 0;
+}
+
+/* ── Ornamental divider ────────────────────────────────────────── */
+.invite__divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1.5rem auto;
+  max-width: 400px;
+}
+
+.invite__divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+
+.invite__divider-ornament {
+  color: var(--gold);
+  font-size: 0.7rem;
+}
+
+/* ── Event details grid ────────────────────────────────────────── */
+.invite__details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem 2rem;
+  margin: 1.5rem auto;
+  max-width: 520px;
+  text-align: left;
+}
+
+.invite__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.8rem 1rem;
+  border-left: 1px solid rgba(201, 168, 76, 0.3);
+}
+
+.invite__detail-label {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-gold);
+}
+
+.invite__detail-value {
+  font-family: var(--font-body);
+  font-size: clamp(0.85rem, 1.8vw, 1rem);
+  font-weight: 300;
+  color: var(--text-cream);
+  line-height: 1.4;
+}
+
+/* ── Tagline ───────────────────────────────────────────────────── */
+.invite__tagline {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  font-weight: 300;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin: 1rem 0 2rem;
+}
+
+.invite__tagline em {
+  color: var(--text-cream);
+  font-style: normal;
+}
+
+/* ── CTA button ────────────────────────────────────────────────── */
+.invite__cta {
+  display: inline-block;
+  padding: 0.9em 2.8em;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: clamp(0.7rem, 1.4vw, 0.85rem);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition: color 0.4s ease;
+  margin-bottom: 1.8rem;
+}
+
+.invite__cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+.invite__cta:hover { color: var(--stage-bg); }
+.invite__cta:hover::before { transform: scaleX(1); }
+
+.invite__cta span { position: relative; z-index: 1; }
+
+/* ── Footer note ───────────────────────────────────────────────── */
+.invite__footer {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CURTAIN WRAP
+   ════════════════════════════════════════════════════════════════ */
+.curtain-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+}
+
+/* ── Curtain rod ───────────────────────────────────────────────── */
+.curtain-rod {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--rod-height);
+  z-index: 20;
+}
+
+.curtain-rod__bar {
+  position: absolute;
+  top: 50%;
+  left: -20px;
+  right: -20px;
+  transform: translateY(-50%);
+  height: 10px;
+  background: linear-gradient(
+    180deg,
+    var(--gold-light) 0%,
+    var(--gold) 30%,
+    var(--gold-dark) 70%,
+    var(--gold) 100%
+  );
+  border-radius: 5px;
+  box-shadow:
+    0 2px 8px rgba(0,0,0,0.6),
+    0 0 20px rgba(201, 168, 76, 0.3),
+    inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.curtain-rod__rings {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.curtain-rod__ring {
+  width: var(--ring-size);
+  height: var(--ring-size);
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--gold-light), var(--gold-dark));
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+.curtain-rod__finial {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--gold-light), var(--gold-dark));
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.curtain-rod__finial--left  { left: -14px; }
+.curtain-rod__finial--right { right: -14px; }
+
+/* ════════════════════════════════════════════════════════════════
+   CURTAIN PANELS
+   ════════════════════════════════════════════════════════════════ */
+.curtain {
+  position: absolute;
+  top: 0;
+  width: 52%;           /* overlap slightly in centre */
+  height: 100%;
+  pointer-events: auto;
+  cursor: pointer;
+  overflow: hidden;
+  will-change: transform;
+}
+
+.curtain--left  { left: 0; }
+.curtain--right { right: 0; }
+
+/* Velvet fabric via layered gradients */
+.curtain--left {
+  background:
+    repeating-linear-gradient(
+      88deg,
+      transparent 0px,
+      rgba(0,0,0,0.06) 2px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      rgba(0,0,0,0.04) 3px,
+      transparent 6px
+    ),
+    linear-gradient(
+      90deg,
+      var(--curtain-shadow) 0%,
+      var(--curtain-red-dark) 8%,
+      var(--curtain-red) 20%,
+      var(--curtain-red-mid) 35%,
+      var(--curtain-red-hi) 45%,
+      var(--curtain-red-mid) 55%,
+      var(--curtain-red) 70%,
+      var(--curtain-red-dark) 90%,
+      var(--curtain-shadow) 100%
+    );
+  box-shadow: inset -20px 0 60px rgba(0,0,0,0.5), 4px 0 20px rgba(0,0,0,0.4);
+}
+
+.curtain--right {
+  background:
+    repeating-linear-gradient(
+      92deg,
+      transparent 0px,
+      rgba(0,0,0,0.06) 2px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      rgba(0,0,0,0.04) 3px,
+      transparent 6px
+    ),
+    linear-gradient(
+      270deg,
+      var(--curtain-shadow) 0%,
+      var(--curtain-red-dark) 8%,
+      var(--curtain-red) 20%,
+      var(--curtain-red-mid) 35%,
+      var(--curtain-red-hi) 45%,
+      var(--curtain-red-mid) 55%,
+      var(--curtain-red) 70%,
+      var(--curtain-red-dark) 90%,
+      var(--curtain-shadow) 100%
+    );
+  box-shadow: inset 20px 0 60px rgba(0,0,0,0.5), -4px 0 20px rgba(0,0,0,0.4);
+}
+
+/* ── Fold lines (pleats) ───────────────────────────────────────── */
+.curtain__fold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    rgba(0,0,0,0.25) 0%,
+    rgba(0,0,0,0.12) 40%,
+    rgba(0,0,0,0.25) 100%
+  );
+}
+
+.curtain--left  .curtain__fold:nth-child(1) { left: 15%; }
+.curtain--left  .curtain__fold:nth-child(2) { left: 30%; }
+.curtain--left  .curtain__fold:nth-child(3) { left: 48%; }
+.curtain--left  .curtain__fold:nth-child(4) { left: 65%; }
+.curtain--left  .curtain__fold:nth-child(5) { left: 82%; }
+
+.curtain--right .curtain__fold:nth-child(1) { right: 15%; }
+.curtain--right .curtain__fold:nth-child(2) { right: 30%; }
+.curtain--right .curtain__fold:nth-child(3) { right: 48%; }
+.curtain--right .curtain__fold:nth-child(4) { right: 65%; }
+.curtain--right .curtain__fold:nth-child(5) { right: 82%; }
+
+/* ── Tassels at inner edge ─────────────────────────────────────── */
+.curtain__tassel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      var(--gold) 0px,
+      var(--gold-dark) 4px,
+      var(--gold) 8px
+    );
+  opacity: 0.7;
+}
+
+.curtain--left  .curtain__tassel { right: 0; }
+.curtain--right .curtain__tassel { left: 0; }
+
+/* ── Idle sway animation ───────────────────────────────────────── */
+.curtain--left.is-swaying {
+  animation: swayLeft 4s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+.curtain--right.is-swaying {
+  animation: swayRight 4s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+@keyframes swayLeft {
+  0%, 100% { transform: skewX(0deg); }
+  25%       { transform: skewX(0.6deg); }
+  75%       { transform: skewX(-0.4deg); }
+}
+
+@keyframes swayRight {
+  0%, 100% { transform: skewX(0deg); }
+  25%       { transform: skewX(-0.6deg); }
+  75%       { transform: skewX(0.4deg); }
+}
+
+/* ── Hover state ───────────────────────────────────────────────── */
+.curtain--left:hover,
+.curtain--right:hover {
+  filter: brightness(1.08);
+  transition: filter 0.3s ease;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   HINT
+   ════════════════════════════════════════════════════════════════ */
+.hint {
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 25;
+}
+
+.hint__icon {
+  font-size: 2rem;
+  animation: hintBounce 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(201, 168, 76, 0.8));
+}
+
+.hint__text {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(201, 168, 76, 0.8);
+}
+
+@keyframes hintBounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  .invite__details {
+    grid-template-columns: 1fr;
+  }
+
+  .invite__detail {
+    text-align: center;
+    border-left: none;
+    border-bottom: 1px solid rgba(201, 168, 76, 0.2);
+    padding-bottom: 1rem;
+  }
+
+  .curtain__tassel {
+    width: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curtain--left.is-swaying,
+  .curtain--right.is-swaying {
+    animation: none;
+  }
+
+  .spotlight { animation: none; opacity: 0.6; }
+  .hint__icon { animation: none; }
+  .particle  { animation: none; }
+}
