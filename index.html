@@ -15,31 +15,6 @@
   </head>
   <body>
 
-    <!-- SVG filters for fabric texture -->
-    <svg class="svg-defs" aria-hidden="true">
-      <defs>
-        <!-- Velvet pile grain — organic noise blended into fabric -->
-        <filter id="velvetGrain" x="0%" y="0%" width="100%" height="100%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.65 1.1" numOctaves="5" seed="3" result="noise" />
-          <feColorMatrix in="noise" type="saturate" values="0" result="mono" />
-          <feComponentTransfer in="mono" result="softNoise">
-            <feFuncA type="linear" slope="0.12" intercept="0" />
-          </feComponentTransfer>
-          <feBlend in="SourceGraphic" in2="softNoise" mode="multiply" />
-        </filter>
-
-        <!-- Subtle vertical thread lines -->
-        <filter id="threadLines" x="0%" y="0%" width="100%" height="100%">
-          <feTurbulence type="turbulence" baseFrequency="0.01 0.6" numOctaves="2" seed="7" result="threads" />
-          <feColorMatrix in="threads" type="saturate" values="0" result="monoThreads" />
-          <feComponentTransfer in="monoThreads" result="softThreads">
-            <feFuncA type="linear" slope="0.06" intercept="0" />
-          </feComponentTransfer>
-          <feBlend in="SourceGraphic" in2="softThreads" mode="overlay" />
-        </filter>
-      </defs>
-    </svg>
-
     <!-- ═══════════════════════════════════════ STAGE ══════════ -->
     <div class="stage" id="stage" aria-label="Concert invite">
 
@@ -49,6 +24,8 @@
         <div class="spotlight spotlight--right"></div>
       </div>
 
+      <div class="sparkles" id="sparkles"></div>
+      <div class="bokeh" id="bokeh"></div>
       <div class="particles" id="particles"></div>
 
       <div class="invite" id="invite" aria-live="polite">
@@ -99,41 +76,6 @@
         <div class="curtain-rod__finial curtain-rod__finial--right"></div>
       </div>
 
-      <!-- Left panel -->
-      <div class="curtain curtain--left" id="curtainLeft" role="button" tabindex="0" aria-label="Click to peek">
-        <!-- Fabric pleats — wide strips with bilateral shading -->
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <!-- Velvet grain overlay -->
-        <div class="curtain__grain" aria-hidden="true"></div>
-        <!-- Shimmer layer (nap direction) -->
-        <div class="curtain__shimmer" aria-hidden="true"></div>
-        <!-- Bottom weight / pooling shadow -->
-        <div class="curtain__weight" aria-hidden="true"></div>
-        <!-- Inner edge trim -->
-        <div class="curtain__tassel" aria-hidden="true"></div>
-      </div>
-
-      <!-- Right panel -->
-      <div class="curtain curtain--right" id="curtainRight" role="button" tabindex="0" aria-label="Click to peek">
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__fold"></div>
-        <div class="curtain__grain" aria-hidden="true"></div>
-        <div class="curtain__shimmer" aria-hidden="true"></div>
-        <div class="curtain__weight" aria-hidden="true"></div>
-        <div class="curtain__tassel" aria-hidden="true"></div>
-      </div>
-
       <!-- Hint -->
       <div class="hint" id="hint" aria-hidden="true">
         <div class="hint__icon">👆</div>
@@ -143,6 +85,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="assets/three.min.js"></script>
     <script src="main.js"></script>
   </body>
 </html>

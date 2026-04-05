@@ -3,7 +3,6 @@
    ════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Velvet palette — deep, warm reds with proper tonal range */
   --vel-deep:       #4A0000;
   --vel-dark:       #6B0000;
   --vel-base:       #8B0000;
@@ -48,11 +47,12 @@ body {
   color: var(--text-white);
 }
 
-.svg-defs {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
+/* ── Three.js canvas ──────────────────────────────────────────── */
+#curtainCanvas {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -71,7 +71,6 @@ body {
   z-index: 0;
 }
 
-/* ── Spotlights ────────────────────────────────────────────────── */
 .spotlights {
   position: absolute;
   inset: 0;
@@ -117,7 +116,55 @@ body {
   75%       { opacity: 0.9; }
 }
 
-/* ── Particles ─────────────────────────────────────────────────── */
+/* ── Sparkles ──────────────────────────────────────────────────── */
+.sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sparkle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,240,0.95) 0%, rgba(255,220,150,0.4) 40%, transparent 70%);
+  animation: twinkle var(--twinkle-dur, 3s) ease-in-out var(--twinkle-delay, 0s) infinite;
+  opacity: 0;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.3); }
+  15%       { opacity: var(--twinkle-peak, 0.8); transform: scale(1); }
+  30%       { opacity: 0.1; transform: scale(0.5); }
+  45%       { opacity: var(--twinkle-peak, 0.6); transform: scale(0.9); }
+  60%, 100% { opacity: 0; transform: scale(0.2); }
+}
+
+/* ── Bokeh (soft light reflections) ────────────────────────────── */
+.bokeh {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.bokeh-orb {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,235,180,0.12) 0%, rgba(255,210,130,0.04) 50%, transparent 70%);
+  animation: bokehFloat var(--bokeh-dur, 12s) ease-in-out var(--bokeh-delay, 0s) infinite;
+  filter: blur(2px);
+}
+
+@keyframes bokehFloat {
+  0%   { opacity: 0.15; transform: translate(0, 0) scale(1); }
+  25%  { opacity: 0.35; transform: translate(var(--bokeh-dx, 20px), var(--bokeh-dy, -15px)) scale(1.1); }
+  50%  { opacity: 0.1;  transform: translate(calc(var(--bokeh-dx, 20px) * -0.5), calc(var(--bokeh-dy, -15px) * 1.3)) scale(0.9); }
+  75%  { opacity: 0.3;  transform: translate(calc(var(--bokeh-dx, 20px) * 0.7), calc(var(--bokeh-dy, -15px) * -0.6)) scale(1.05); }
+  100% { opacity: 0.15; transform: translate(0, 0) scale(1); }
+}
+
+/* ── Dust particles ────────────────────────────────────────────── */
 .particles {
   position: absolute;
   inset: 0;
@@ -193,9 +240,7 @@ body {
   margin: 0.1em 0;
 }
 
-.invite__featuring {
-  margin-bottom: 2rem;
-}
+.invite__featuring { margin-bottom: 2rem; }
 
 .invite__featuring-name {
   font-family: var(--font-display);
@@ -299,13 +344,9 @@ body {
   right: -20px;
   transform: translateY(-50%);
   height: 10px;
-  background: linear-gradient(
-    180deg,
-    var(--rod-silver-light) 0%,
-    var(--rod-silver) 30%,
-    var(--rod-silver-dark) 70%,
-    var(--rod-silver) 100%
-  );
+  background: linear-gradient(180deg,
+    var(--rod-silver-light) 0%, var(--rod-silver) 30%,
+    var(--rod-silver-dark) 70%, var(--rod-silver) 100%);
   border-radius: 5px;
   box-shadow:
     0 2px 8px rgba(0,0,0,0.6),
@@ -315,9 +356,7 @@ body {
 
 .curtain-rod__rings {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   height: 100%;
   display: flex;
   justify-content: space-around;
@@ -349,254 +388,6 @@ body {
 .curtain-rod__finial--left  { left: -14px; }
 .curtain-rod__finial--right { right: -14px; }
 
-/* ════════════════════════════════════════════════════════════════
-   CURTAIN PANELS
-   ════════════════════════════════════════════════════════════════ */
-.curtain {
-  position: absolute;
-  top: 0;
-  width: 52%;
-  height: 100%;
-  pointer-events: auto;
-  cursor: pointer;
-  overflow: hidden;
-  will-change: transform;
-}
-
-.curtain--left  { left: 0; }
-.curtain--right { right: 0; }
-
-/*
-   Base fabric — multi-layer background simulating gathered velvet.
-   The key insight: theatre curtains are NOT flat. They have deep, 
-   alternating ridges and valleys. We paint this with overlapping
-   radial + linear gradients at different widths.
-*/
-.curtain--left {
-  background:
-    /* Top gathering — fabric bunches tighter near the rod */
-    radial-gradient(ellipse 100% 8% at 50% 0%, rgba(0,0,0,0.5) 0%, transparent 100%),
-
-    /* Large fold highlight ridges */
-    radial-gradient(ellipse 7% 100% at 12% 50%, var(--vel-peak)  0%, transparent 100%),
-    radial-gradient(ellipse 7% 100% at 30% 50%, var(--vel-hi)    0%, transparent 100%),
-    radial-gradient(ellipse 6% 100% at 50% 50%, var(--vel-peak)  0%, transparent 100%),
-    radial-gradient(ellipse 7% 100% at 68% 50%, var(--vel-hi)    0%, transparent 100%),
-    radial-gradient(ellipse 6% 100% at 85% 50%, var(--vel-warm)  0%, transparent 100%),
-
-    /* Deep valley shadows between folds */
-    radial-gradient(ellipse 4% 100% at  5% 50%, var(--vel-abyss) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 21% 50%, var(--vel-shadow) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 40% 50%, var(--vel-shadow) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 58% 50%, var(--vel-shadow) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 76% 50%, var(--vel-shadow) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 94% 50%, var(--vel-abyss) 0%, transparent 100%),
-
-    /* Base fabric color */
-    linear-gradient(
-      90deg,
-      var(--vel-abyss)  0%,
-      var(--vel-deep)   5%,
-      var(--vel-dark)  15%,
-      var(--vel-base)  30%,
-      var(--vel-mid)   50%,
-      var(--vel-base)  70%,
-      var(--vel-dark)  85%,
-      var(--vel-deep)  95%,
-      var(--vel-abyss) 100%
-    );
-
-  box-shadow:
-    inset -30px 0 80px rgba(0,0,0,0.7),
-    inset 0 -40px 60px rgba(0,0,0,0.3),
-    5px 0 30px rgba(0,0,0,0.6);
-}
-
-.curtain--right {
-  background:
-    radial-gradient(ellipse 100% 8% at 50% 0%, rgba(0,0,0,0.5) 0%, transparent 100%),
-
-    radial-gradient(ellipse 6% 100% at 15% 50%, var(--vel-warm)  0%, transparent 100%),
-    radial-gradient(ellipse 7% 100% at 32% 50%, var(--vel-hi)    0%, transparent 100%),
-    radial-gradient(ellipse 6% 100% at 50% 50%, var(--vel-peak)  0%, transparent 100%),
-    radial-gradient(ellipse 7% 100% at 70% 50%, var(--vel-hi)    0%, transparent 100%),
-    radial-gradient(ellipse 7% 100% at 88% 50%, var(--vel-peak)  0%, transparent 100%),
-
-    radial-gradient(ellipse 4% 100% at  6% 50%, var(--vel-abyss) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 24% 50%, var(--vel-shadow) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 42% 50%, var(--vel-shadow) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 60% 50%, var(--vel-shadow) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 79% 50%, var(--vel-shadow) 0%, transparent 100%),
-    radial-gradient(ellipse 4% 100% at 95% 50%, var(--vel-abyss) 0%, transparent 100%),
-
-    linear-gradient(
-      270deg,
-      var(--vel-abyss)  0%,
-      var(--vel-deep)   5%,
-      var(--vel-dark)  15%,
-      var(--vel-base)  30%,
-      var(--vel-mid)   50%,
-      var(--vel-base)  70%,
-      var(--vel-dark)  85%,
-      var(--vel-deep)  95%,
-      var(--vel-abyss) 100%
-    );
-
-  box-shadow:
-    inset 30px 0 80px rgba(0,0,0,0.7),
-    inset 0 -40px 60px rgba(0,0,0,0.3),
-    -5px 0 30px rgba(0,0,0,0.6);
-}
-
-/* ── Fabric pleat folds ────────────────────────────────────────── 
-   Each fold is a wide semi-transparent strip with bilateral shading.
-   Left side = shadow (valley), center = highlight (ridge peak), right = shadow.
-   The GSAP animation moves these independently to create wave motion.
-*/
-.curtain__fold {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 18%;
-  pointer-events: none;
-  will-change: transform;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.35) 0%,
-    rgba(0, 0, 0, 0.10) 20%,
-    rgba(191, 32, 32, 0.20) 35%,
-    rgba(204, 45, 45, 0.28) 50%,
-    rgba(191, 32, 32, 0.20) 65%,
-    rgba(0, 0, 0, 0.10) 80%,
-    rgba(0, 0, 0, 0.35) 100%
-  );
-}
-
-/* Position folds across the panel — overlapping creates depth */
-.curtain--left .curtain__fold:nth-child(1) { left:  0%; }
-.curtain--left .curtain__fold:nth-child(2) { left: 12%; }
-.curtain--left .curtain__fold:nth-child(3) { left: 26%; }
-.curtain--left .curtain__fold:nth-child(4) { left: 40%; }
-.curtain--left .curtain__fold:nth-child(5) { left: 54%; }
-.curtain--left .curtain__fold:nth-child(6) { left: 68%; }
-.curtain--left .curtain__fold:nth-child(7) { left: 82%; }
-
-.curtain--right .curtain__fold:nth-child(1) { right:  0%; }
-.curtain--right .curtain__fold:nth-child(2) { right: 12%; }
-.curtain--right .curtain__fold:nth-child(3) { right: 26%; }
-.curtain--right .curtain__fold:nth-child(4) { right: 40%; }
-.curtain--right .curtain__fold:nth-child(5) { right: 54%; }
-.curtain--right .curtain__fold:nth-child(6) { right: 68%; }
-.curtain--right .curtain__fold:nth-child(7) { right: 82%; }
-
-/* Vary fold opacity + gradient for more organic feel */
-.curtain__fold:nth-child(odd) {
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.30) 0%,
-    rgba(0, 0, 0, 0.05) 25%,
-    rgba(204, 45, 45, 0.22) 50%,
-    rgba(0, 0, 0, 0.05) 75%,
-    rgba(0, 0, 0, 0.30) 100%
-  );
-}
-
-/* ── Velvet grain overlay (SVG filter) ─────────────────────────── */
-.curtain__grain {
-  position: absolute;
-  inset: 0;
-  filter: url(#velvetGrain);
-  background: linear-gradient(
-    180deg,
-    var(--vel-dark) 0%,
-    var(--vel-base) 30%,
-    var(--vel-mid) 60%,
-    var(--vel-dark) 100%
-  );
-  mix-blend-mode: soft-light;
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-/* ── Shimmer layer — velvet directional nap ────────────────────── */
-.curtain__shimmer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    165deg,
-    transparent 0%,
-    rgba(255, 180, 180, 0.04) 20%,
-    rgba(255, 200, 200, 0.07) 40%,
-    transparent 55%,
-    rgba(255, 180, 180, 0.03) 70%,
-    transparent 100%
-  );
-  mix-blend-mode: screen;
-}
-
-/* ── Bottom weight — fabric pools heavier at the bottom ────────── */
-.curtain__weight {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 25%;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0, 0, 0, 0.25) 60%,
-    rgba(0, 0, 0, 0.45) 100%
-  );
-}
-
-/* ── Inner edge tassel/trim ────────────────────────────────────── */
-.curtain__tassel {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    rgba(255,255,255,0.08) 0%,
-    rgba(255,255,255,0.03) 50%,
-    rgba(255,255,255,0.08) 100%
-  );
-  box-shadow:
-    0 0 12px 2px rgba(0,0,0,0.5),
-    inset 0 0 4px rgba(255,255,255,0.05);
-}
-
-.curtain--left  .curtain__tassel { right: 0; }
-.curtain--right .curtain__tassel { left: 0; }
-
-/* ── Idle sway ─────────────────────────────────────────────────── */
-.curtain--left.is-swaying {
-  animation: swayLeft 6s ease-in-out infinite;
-  transform-origin: top center;
-}
-.curtain--right.is-swaying {
-  animation: swayRight 6s ease-in-out infinite;
-  transform-origin: top center;
-}
-
-@keyframes swayLeft {
-  0%, 100% { transform: skewX(0deg); }
-  30%       { transform: skewX(0.35deg); }
-  70%       { transform: skewX(-0.25deg); }
-}
-@keyframes swayRight {
-  0%, 100% { transform: skewX(0deg); }
-  30%       { transform: skewX(-0.35deg); }
-  70%       { transform: skewX(0.25deg); }
-}
-
-.curtain:hover {
-  filter: brightness(1.05);
-  transition: filter 0.4s ease;
-}
 
 /* ════════════════════════════════════════════════════════════════
    HINT
@@ -647,9 +438,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .curtain--left.is-swaying,
-  .curtain--right.is-swaying { animation: none; }
-  .spotlight { animation: none; opacity: 0.6; }
+  .spotlight  { animation: none; opacity: 0.6; }
   .hint__icon { animation: none; }
   .particle   { animation: none; }
+  .sparkle    { animation: none; }
+  .bokeh-orb  { animation: none; opacity: 0.2; }
 }

@@ -1,454 +1,378 @@
 /* ════════════════════════════════════════════════════════════════
    BEHIND THE CURTAIN — main.js
+   Three.js cloth simulation with Verlet integration
 
    Curtain state per panel: 0 = closed | 1 = peeked | 2 = open
-
-   Click left  side → advance left curtain
-   Click right side → advance right curtain
-   Click center     → randomly advance left or right
    ════════════════════════════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
-  /* ── Refs ─────────────────────────────────────────────────────── */
-  const curtainLeft    = document.getElementById('curtainLeft');
-  const curtainRight   = document.getElementById('curtainRight');
-  const curtainWrap    = document.getElementById('curtainWrap');
-  const hint           = document.getElementById('hint');
-  const hintText       = document.getElementById('hintText');
-  const invite         = document.getElementById('invite');
-  const ringsContainer = document.querySelector('.curtain-rod__rings');
+  const { Scene, PerspectiveCamera, WebGLRenderer, PlaneGeometry,
+          MeshStandardMaterial, Mesh, DoubleSide, TextureLoader,
+          RepeatWrapping, AmbientLight, SpotLight, Vector3,
+          Color, SRGBColorSpace, Vector2 } = THREE;
 
-  /* ── State ────────────────────────────────────────────────────── */
-  const state = { left: 0, right: 0 };   // 0=closed | 1=peek | 2=open
-  const busy  = { left: false, right: false };
+  const curtainWrap  = document.getElementById('curtainWrap');
+  const hint         = document.getElementById('hint');
+  const hintText     = document.getElementById('hintText');
+  const invite       = document.getElementById('invite');
+  const ringsEl      = document.querySelector('.curtain-rod__rings');
+
+  let stage = 0;   // 0 = closed, 1 = left peeked, 2 = right peeked, 3 = fully open
+  let busy  = false;
 
   let hintTimer    = null;
   const HINT_DELAY = 5000;
 
-  // centre band (% of viewport width) that triggers random side
-  const CENTER_BAND = 0.12;
-
   /* ════════════════════════════════════════════════════════════════
-     INIT
+     A. CLOTH PHYSICS — Verlet Integration
      ════════════════════════════════════════════════════════════════ */
-  function init() {
-    buildRings();
-    buildParticles();
-    curtainLeft.classList.add('is-swaying');
-    curtainRight.classList.add('is-swaying');
-    scheduleHint();
-    bindEvents();
-  }
 
-  /* ── Rod rings ────────────────────────────────────────────────── */
-  function buildRings() {
-    const count = Math.floor(window.innerWidth / 50);
-    for (let i = 0; i < count; i++) {
-      const ring = document.createElement('div');
-      ring.className = 'curtain-rod__ring';
-      ringsContainer.appendChild(ring);
+  const GRAVITY    = new Vector3(0, -12.0, 0);
+  const DAMPING    = 0.985;
+  const ITERATIONS = 18;
+  const TIMESTEP   = 1 / 60;
+
+  class Particle {
+    constructor(x, y, z, mass) {
+      this.position  = new Vector3(x, y, z);
+      this.previous  = new Vector3(x, y, z);
+      this.original  = new Vector3(x, y, z);
+      this.mass      = mass;
+      this.invMass   = 1 / mass;
+      this.pinned    = false;
+      this.pinTarget = new Vector3(x, y, z);
     }
   }
 
-  /* ── Particles ────────────────────────────────────────────────── */
-  function buildParticles() {
-    const container = document.getElementById('particles');
-    for (let i = 0; i < 30; i++) {
-      const p     = document.createElement('div');
-      p.className = 'particle';
-      const size  = Math.random() * 3 + 1;
-      const left  = Math.random() * 100;
-      const dur   = Math.random() * 8 + 5;
-      const delay = Math.random() * 12;
-      const drift = (Math.random() - 0.5) * 120;
-      p.style.cssText = `width:${size}px;height:${size}px;left:${left}%;--dur:${dur}s;--delay:${delay}s;--drift:${drift}px;`;
-      container.appendChild(p);
+  class Cloth {
+    constructor(segsW, segsH, width, height, pleatCount, pleatDepth) {
+      this.segsW  = segsW;
+      this.segsH  = segsH;
+      this.width  = width;
+      this.height = height;
+      this.particles   = [];
+      this.constraints = [];
+
+      for (let j = 0; j <= segsH; j++) {
+        for (let i = 0; i <= segsW; i++) {
+          const u = i / segsW;
+          const x = (u - 0.5) * width;
+          const y = (1 - j / segsH) * height - height * 0.5;
+
+          const pleatPhase = u * pleatCount * Math.PI * 2;
+          const depthFade  = 1 - (j / segsH) * 0.15;
+          const z = Math.sin(pleatPhase) * pleatDepth * depthFade;
+
+          const p = new Particle(x, y, z, 1);
+          if (j === 0) {
+            p.pinned = true;
+            p.pinTarget.set(x, y, z);
+          }
+          this.particles.push(p);
+        }
+      }
+
+      const idx = (i, j) => j * (segsW + 1) + i;
+
+      for (let j = 0; j <= segsH; j++) {
+        for (let i = 0; i <= segsW; i++) {
+          if (i < segsW) {
+            const a = idx(i, j), b = idx(i + 1, j);
+            this.constraints.push([a, b, this.particles[a].position.distanceTo(this.particles[b].position)]);
+          }
+          if (j < segsH) {
+            const a = idx(i, j), b = idx(i, j + 1);
+            this.constraints.push([a, b, this.particles[a].position.distanceTo(this.particles[b].position)]);
+          }
+          if (i < segsW && j < segsH) {
+            const a1 = idx(i, j), b1 = idx(i + 1, j + 1);
+            const a2 = idx(i + 1, j), b2 = idx(i, j + 1);
+            this.constraints.push([a1, b1, this.particles[a1].position.distanceTo(this.particles[b1].position)]);
+            this.constraints.push([a2, b2, this.particles[a2].position.distanceTo(this.particles[b2].position)]);
+          }
+        }
+      }
+    }
+
+    simulate(dt, windForce) {
+      const dtSq = dt * dt;
+
+      for (const p of this.particles) {
+        if (p.pinned) {
+          p.position.copy(p.pinTarget);
+          p.previous.copy(p.pinTarget);
+          continue;
+        }
+
+        const vel = p.position.clone().sub(p.previous).multiplyScalar(DAMPING);
+        const accel = GRAVITY.clone().multiplyScalar(p.invMass * dtSq);
+
+        if (windForce) accel.add(windForce.clone().multiplyScalar(dtSq));
+
+        p.previous.copy(p.position);
+        p.position.add(vel).add(accel);
+      }
+
+      for (let iter = 0; iter < ITERATIONS; iter++) {
+        for (const [a, b, rest] of this.constraints) {
+          const pa = this.particles[a];
+          const pb = this.particles[b];
+          const diff = pb.position.clone().sub(pa.position);
+          const dist = diff.length();
+          if (dist < 0.0001) continue;
+          const correction = diff.multiplyScalar((dist - rest) / dist * 0.5);
+
+          if (!pa.pinned) pa.position.add(correction);
+          if (!pb.pinned) pb.position.sub(correction);
+        }
+      }
+    }
+
+    updateGeometry(geometry) {
+      const pos = geometry.attributes.position;
+      for (let i = 0; i < this.particles.length; i++) {
+        const p = this.particles[i];
+        pos.setXYZ(i, p.position.x, p.position.y, p.position.z);
+      }
+      pos.needsUpdate = true;
+      geometry.computeVertexNormals();
+    }
+
+    setPinOffset(offsetX) {
+      const topRow = this.segsW + 1;
+      for (let i = 0; i < topRow; i++) {
+        const p = this.particles[i];
+        p.pinTarget.x = p.original.x + offsetX;
+      }
     }
   }
 
   /* ════════════════════════════════════════════════════════════════
-     HINT
+     B. THREE.JS SCENE
      ════════════════════════════════════════════════════════════════ */
-  function scheduleHint(msg) {
-    clearTimeout(hintTimer);
-    if (msg) hintText.textContent = msg;
-    hintTimer = setTimeout(showHint, HINT_DELAY);
-  }
 
-  function showHint() {
-    hint.setAttribute('aria-hidden', 'false');
-    gsap.to(hint, { opacity: 1, duration: 0.8, ease: 'power2.out' });
-  }
+  const SEGS_W      = 50;
+  const SEGS_H      = 45;
+  const PANEL_W     = 3.2;
+  const PANEL_H     = 5.0;
+  const GAP         = 0.0;
+  const PLEAT_COUNT = 8;
+  const PLEAT_DEPTH = 0.22;
 
-  function hideHint() {
-    clearTimeout(hintTimer);
-    gsap.to(hint, {
-      opacity: 0,
-      duration: 0.3,
-      ease: 'power2.in',
-      onComplete: () => hint.setAttribute('aria-hidden', 'true'),
+  let scene, camera, renderer;
+  let leftMesh, rightMesh;
+  let leftCloth, rightCloth;
+  let windTime = 0;
+
+  function initThree() {
+    scene = new Scene();
+
+    camera = new PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 5.6);
+    camera.lookAt(0, 0, 0);
+
+    renderer = new WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+    renderer.domElement.id = 'curtainCanvas';
+    curtainWrap.insertBefore(renderer.domElement, curtainWrap.firstChild);
+
+    const loader = new TextureLoader();
+    const diffuse  = loader.load('assets/velvet-diffuse.jpg');
+    const normal   = loader.load('assets/velvet-normal.jpg');
+    const rough    = loader.load('assets/velvet-roughness.jpg');
+
+    [diffuse, normal, rough].forEach(tex => {
+      tex.wrapS = tex.wrapT = RepeatWrapping;
+      tex.repeat.set(4, 6);
     });
+    diffuse.colorSpace = SRGBColorSpace;
+
+    const material = new MeshStandardMaterial({
+      map: diffuse,
+      normalMap: normal,
+      roughnessMap: rough,
+      color: new Color(0xffd0d0),
+      roughness: 0.88,
+      metalness: 0.03,
+      side: DoubleSide,
+      normalScale: new Vector2(0.6, 0.6),
+    });
+
+    const leftGeo  = new PlaneGeometry(PANEL_W, PANEL_H, SEGS_W, SEGS_H);
+    const rightGeo = new PlaneGeometry(PANEL_W, PANEL_H, SEGS_W, SEGS_H);
+
+    leftMesh  = new Mesh(leftGeo, material);
+    rightMesh = new Mesh(rightGeo, material.clone());
+
+    scene.add(leftMesh, rightMesh);
+
+    leftCloth  = new Cloth(SEGS_W, SEGS_H, PANEL_W, PANEL_H, PLEAT_COUNT, PLEAT_DEPTH);
+    rightCloth = new Cloth(SEGS_W, SEGS_H, PANEL_W, PANEL_H, PLEAT_COUNT, PLEAT_DEPTH);
+
+    const halfPanel = PANEL_W / 2;
+    leftCloth.particles.forEach(p => {
+      p.position.x  -= halfPanel + GAP;
+      p.previous.x  -= halfPanel + GAP;
+      p.original.x  -= halfPanel + GAP;
+      p.pinTarget.x -= halfPanel + GAP;
+    });
+    rightCloth.particles.forEach(p => {
+      p.position.x  += halfPanel + GAP;
+      p.previous.x  += halfPanel + GAP;
+      p.original.x  += halfPanel + GAP;
+      p.pinTarget.x += halfPanel + GAP;
+    });
+
+    leftCloth.updateGeometry(leftGeo);
+    rightCloth.updateGeometry(rightGeo);
+
+    const ambient = new AmbientLight(0xfff0e0, 0.8);
+    scene.add(ambient);
+
+    const spotCenter = new SpotLight(0xffe8b0, 4.0, 15, Math.PI / 4, 0.5, 1.2);
+    spotCenter.position.set(0, 4, 5);
+    spotCenter.target.position.set(0, -0.5, 0);
+    scene.add(spotCenter, spotCenter.target);
+
+    const spotLeft = new SpotLight(0xffe8b0, 3.0, 15, Math.PI / 5, 0.6, 1.5);
+    spotLeft.position.set(-3, 4, 4);
+    spotLeft.target.position.set(-1.5, -1, 0);
+    scene.add(spotLeft, spotLeft.target);
+
+    const spotRight = new SpotLight(0xffe8b0, 3.0, 15, Math.PI / 5, 0.6, 1.5);
+    spotRight.position.set(3, 4, 4);
+    spotRight.target.position.set(1.5, -1, 0);
+    scene.add(spotRight, spotRight.target);
+
+    window.addEventListener('resize', onResize);
+  }
+
+  function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
   /* ════════════════════════════════════════════════════════════════
-     CURTAIN ADVANCE
+     C. ANIMATION LOOP
      ════════════════════════════════════════════════════════════════ */
 
-  function advanceLeft() {
-    if (busy.left || state.left === 2) return;
-    hideHint();
-    if (state.left === 0) peekLeft();
-    else if (state.left === 1) openLeft();
+  function animate() {
+    requestAnimationFrame(animate);
+
+    windTime += TIMESTEP;
+    const windX = Math.sin(windTime * 0.3) * 0.08;
+    const windZ = Math.cos(windTime * 0.5) * 0.05;
+    const wind  = new Vector3(windX, 0, windZ);
+
+    leftCloth.simulate(TIMESTEP, wind);
+    rightCloth.simulate(TIMESTEP, wind);
+
+    leftCloth.updateGeometry(leftMesh.geometry);
+    rightCloth.updateGeometry(rightMesh.geometry);
+
+    renderer.render(scene, camera);
   }
 
-  function advanceRight() {
-    if (busy.right || state.right === 2) return;
+  /* ════════════════════════════════════════════════════════════════
+     D. INTERACTION — 3-STAGE SEQUENTIAL REVEAL
+
+     Click 1: Left curtain peeks — text half-visible
+     Click 2: Right curtain peeks — text peeking both sides
+     Click 3: Both curtains fly open — full reveal
+     ════════════════════════════════════════════════════════════════ */
+
+  const PEEK_AMOUNT = PANEL_W * 0.15;
+  const OPEN_AMOUNT = PANEL_W * 1.5;
+
+  function advance() {
+    if (busy || stage >= 3) return;
     hideHint();
-    if (state.right === 0) peekRight();
-    else if (state.right === 1) openRight();
+
+    if (stage === 0)      peekLeft();
+    else if (stage === 1) peekRight();
+    else if (stage === 2) openBoth();
   }
 
-  /* ── PEEK LEFT (stage 0 → 1) ──────────────────────────────────── */
   function peekLeft() {
-    busy.left = true;
-    state.left = 1;
-    curtainLeft.classList.remove('is-swaying');
+    busy = true;
+    stage = 1;
 
-    const folds = curtainLeft.querySelectorAll('.curtain__fold');
-    const tl = gsap.timeline({
+    const target = { x: 0 };
+    gsap.to(target, {
+      x: -PEEK_AMOUNT,
+      duration: 2.5,
+      ease: 'power2.inOut',
+      onUpdate: () => leftCloth.setPinOffset(target.x),
       onComplete: () => {
-        busy.left = false;
-        curtainLeft.setAttribute('aria-label', 'Click to fully open');
-        scheduleHint('Click left to open fully');
+        busy = false;
+        teasInvite(0.15);
+        scheduleHint('Click again to peek the other side');
       },
-    });
-
-    // 1. Initial resistance — heavy fabric resists before yielding
-    tl.to(curtainLeft, { x: 12, duration: 0.3, ease: 'power2.in' });
-
-    // 2. Main pull — slow start, builds momentum
-    tl.to(curtainLeft, { 
-      x: '-50%', 
-      duration: 1.8,
-      ease: 'power2.inOut'
-    });
-
-    // Wave propagates through folds (tassel edge moves first, anchored edge last)
-    tl.to(folds, {
-      x: (i, target, targets) => {
-        // folds near tassel (right edge) move more
-        const ratio = (targets.length - i) / targets.length;
-        return -18 * ratio;
-      },
-      skewX: (i, target, targets) => {
-        const ratio = (targets.length - i) / targets.length;
-        return -3 * ratio;
-      },
-      duration: 1.6,
-      stagger: { 
-        each: 0.1, 
-        from: 'end',  // tassel side first
-        ease: 'power1.in'
-      },
-      ease: 'power2.out'
-    }, '-=1.7');
-
-    // 3. Settling sway — curtain swings to rest
-    tl.to(curtainLeft, {
-      x: '-48%',
-      skewX: 1.2,
-      duration: 0.5,
-      ease: 'sine.out'
-    });
-    tl.to(curtainLeft, {
-      x: '-50.5%',
-      skewX: -0.4,
-      duration: 0.45,
-      ease: 'sine.inOut'
-    });
-    tl.to(curtainLeft, {
-      x: '-50%',
-      skewX: 0,
-      duration: 0.6,
-      ease: 'power1.out'
-    });
-
-    // Folds settle back to neutral
-    tl.to(folds, {
-      x: 0,
-      skewX: 0,
-      duration: 0.9,
-      ease: 'power2.out'
-    }, '-=1.2');
-
-    // Faint invite reveal
-    gsap.to(Array.from(invite.querySelector('.invite__inner').children), {
-      opacity: 0.3, y: 0, duration: 0.6, stagger: 0.08, ease: 'power2.out', delay: 0.8,
     });
   }
 
-  /* ── OPEN LEFT (stage 1 → 2) ──────────────────────────────────── */
-  function openLeft() {
-    busy.left = true;
-    state.left = 2;
-    curtainLeft.style.pointerEvents = 'none';
-
-    const folds = curtainLeft.querySelectorAll('.curtain__fold');
-    const tl = gsap.timeline({ onComplete: () => { busy.left = false; checkBothOpen(); } });
-
-    // 1. Pre-tension — curtain gathers inward before the big pull
-    tl.to(curtainLeft, { 
-      x: '-48%', 
-      skewX: 1.5, 
-      duration: 0.4, 
-      ease: 'power2.in' 
-    });
-
-    // Folds compress toward center (gathering tension)
-    tl.to(folds, {
-      x: (i) => 8 - i * 1.5,
-      skewX: 1.5,
-      duration: 0.35,
-      ease: 'power1.in'
-    }, '-=0.35');
-
-    // 2. Acceleration phase — starts slow, builds to peak speed
-    tl.to(curtainLeft, { 
-      x: '-75%', 
-      skewX: -7,
-      duration: 1.0,
-      ease: 'power2.in'
-    });
-
-    // Wave rips through folds as curtain accelerates
-    tl.to(folds, {
-      x: (i, target, targets) => {
-        const ratio = (targets.length - i) / targets.length;
-        return -25 * ratio;
-      },
-      skewX: (i, target, targets) => {
-        const ratio = (targets.length - i) / targets.length;
-        return -5 * ratio;
-      },
-      duration: 1.0,
-      stagger: {
-        each: 0.08,
-        from: 'end',
-        ease: 'power1.in'
-      },
-      ease: 'power2.in'
-    }, '-=0.95');
-
-    // 3. Deceleration + exit — fabric bunches as it hits the wall
-    tl.to(curtainLeft, { 
-      x: '-115%', 
-      skewX: 0,
-      duration: 0.9,
-      ease: 'power3.out'
-    });
-
-    // Folds compress + snap back as curtain bunches off-screen
-    tl.to(folds, {
-      x: (i) => -10 - i * 2,
-      skewX: 0,
-      duration: 0.8,
-      stagger: {
-        each: 0.05,
-        from: 'end'
-      },
-      ease: 'power3.out'
-    }, '-=0.85');
-
-    // 4. Final wobble — small bounce-back before settling
-    tl.to(curtainLeft, {
-      x: '-113%',
-      duration: 0.35,
-      ease: 'back.out(2)'
-    });
-    tl.to(curtainLeft, {
-      x: '-115%',
-      duration: 0.4,
-      ease: 'power2.inOut'
-    });
-  }
-
-  /* ── PEEK RIGHT (stage 0 → 1) ─────────────────────────────────── */
   function peekRight() {
-    busy.right = true;
-    state.right = 1;
-    curtainRight.classList.remove('is-swaying');
+    busy = true;
+    stage = 2;
 
-    const folds = curtainRight.querySelectorAll('.curtain__fold');
+    const target = { x: 0 };
+    gsap.to(target, {
+      x: PEEK_AMOUNT,
+      duration: 2.5,
+      ease: 'power2.inOut',
+      onUpdate: () => rightCloth.setPinOffset(target.x),
+      onComplete: () => {
+        busy = false;
+        teasInvite(0.35);
+        scheduleHint('Click to reveal');
+      },
+    });
+  }
+
+  function openBoth() {
+    busy = true;
+    stage = 3;
+
+    const leftCurrent  = leftCloth.particles[0].pinTarget.x - leftCloth.particles[0].original.x;
+    const rightCurrent = rightCloth.particles[0].pinTarget.x - rightCloth.particles[0].original.x;
+    const leftTarget  = { x: leftCurrent };
+    const rightTarget = { x: rightCurrent };
+
     const tl = gsap.timeline({
       onComplete: () => {
-        busy.right = false;
-        curtainRight.setAttribute('aria-label', 'Click to fully open');
-        scheduleHint('Click right to open fully');
+        busy = false;
+        renderer.domElement.style.pointerEvents = 'none';
+        curtainWrap.style.pointerEvents = 'none';
+        revealInvite();
       },
     });
 
-    // 1. Initial resistance
-    tl.to(curtainRight, { x: -12, duration: 0.3, ease: 'power2.in' });
+    tl.to(leftTarget, {
+      x: -OPEN_AMOUNT,
+      duration: 2.2,
+      ease: 'power3.in',
+      onUpdate: () => leftCloth.setPinOffset(leftTarget.x),
+    }, 0);
 
-    // 2. Main pull
-    tl.to(curtainRight, { 
-      x: '50%', 
-      duration: 1.8,
-      ease: 'power2.inOut'
-    });
+    tl.to(rightTarget, {
+      x: OPEN_AMOUNT,
+      duration: 2.2,
+      ease: 'power3.in',
+      onUpdate: () => rightCloth.setPinOffset(rightTarget.x),
+    }, 0.15);
+  }
 
-    // Wave propagates (tassel on left edge = 'start')
-    tl.to(folds, {
-      x: (i, target, targets) => {
-        const ratio = i / targets.length;  // reversed: first fold moves most
-        return 18 * ratio;
-      },
-      skewX: (i, target, targets) => {
-        const ratio = i / targets.length;
-        return 3 * ratio;
-      },
-      duration: 1.6,
-      stagger: { 
-        each: 0.1, 
-        from: 'start',  // tassel side first (left edge for right curtain)
-        ease: 'power1.in'
-      },
-      ease: 'power2.out'
-    }, '-=1.7');
-
-    // 3. Settling sway
-    tl.to(curtainRight, {
-      x: '48%',
-      skewX: -1.2,
-      duration: 0.5,
-      ease: 'sine.out'
-    });
-    tl.to(curtainRight, {
-      x: '50.5%',
-      skewX: 0.4,
-      duration: 0.45,
-      ease: 'sine.inOut'
-    });
-    tl.to(curtainRight, {
-      x: '50%',
-      skewX: 0,
-      duration: 0.6,
-      ease: 'power1.out'
-    });
-
-    // Folds settle
-    tl.to(folds, {
-      x: 0,
-      skewX: 0,
-      duration: 0.9,
-      ease: 'power2.out'
-    }, '-=1.2');
-
+  function teasInvite(opacity) {
     gsap.to(Array.from(invite.querySelector('.invite__inner').children), {
-      opacity: 0.3, y: 0, duration: 0.6, stagger: 0.08, ease: 'power2.out', delay: 0.8,
+      opacity: opacity, y: 0, duration: 0.8, stagger: 0.08, ease: 'power2.out',
     });
   }
 
-  /* ── OPEN RIGHT (stage 1 → 2) ─────────────────────────────────── */
-  function openRight() {
-    busy.right = true;
-    state.right = 2;
-    curtainRight.style.pointerEvents = 'none';
-
-    const folds = curtainRight.querySelectorAll('.curtain__fold');
-    const tl = gsap.timeline({ onComplete: () => { busy.right = false; checkBothOpen(); } });
-
-    // 1. Pre-tension
-    tl.to(curtainRight, { 
-      x: '48%', 
-      skewX: -1.5, 
-      duration: 0.4, 
-      ease: 'power2.in' 
-    });
-
-    // Folds compress
-    tl.to(folds, {
-      x: (i) => -8 + i * 1.5,
-      skewX: -1.5,
-      duration: 0.35,
-      ease: 'power1.in'
-    }, '-=0.35');
-
-    // 2. Acceleration phase
-    tl.to(curtainRight, { 
-      x: '75%', 
-      skewX: 7,
-      duration: 1.0,
-      ease: 'power2.in'
-    });
-
-    // Wave through folds
-    tl.to(folds, {
-      x: (i, target, targets) => {
-        const ratio = i / targets.length;
-        return 25 * ratio;
-      },
-      skewX: (i, target, targets) => {
-        const ratio = i / targets.length;
-        return 5 * ratio;
-      },
-      duration: 1.0,
-      stagger: {
-        each: 0.08,
-        from: 'start',
-        ease: 'power1.in'
-      },
-      ease: 'power2.in'
-    }, '-=0.95');
-
-    // 3. Deceleration + exit
-    tl.to(curtainRight, { 
-      x: '115%', 
-      skewX: 0,
-      duration: 0.9,
-      ease: 'power3.out'
-    });
-
-    // Folds compress + snap
-    tl.to(folds, {
-      x: (i) => 10 + i * 2,
-      skewX: 0,
-      duration: 0.8,
-      stagger: {
-        each: 0.05,
-        from: 'start'
-      },
-      ease: 'power3.out'
-    }, '-=0.85');
-
-    // 4. Final wobble
-    tl.to(curtainRight, {
-      x: '113%',
-      duration: 0.35,
-      ease: 'back.out(2)'
-    });
-    tl.to(curtainRight, {
-      x: '115%',
-      duration: 0.4,
-      ease: 'power2.inOut'
-    });
-  }
-
-  /* ── Check if both fully open ─────────────────────────────────── */
-  function checkBothOpen() {
-    if (state.left === 2 && state.right === 2) {
-      curtainWrap.style.pointerEvents = 'none';
-      revealInvite();
-    } else {
-      // one side still has a curtain — nudge user to open the other
-      const msg = state.left < 2 ? 'Now open the left side' : 'Now open the right side';
-      scheduleHint(msg);
-    }
-  }
-
-  /* ── Full invite reveal ───────────────────────────────────────── */
   function revealInvite() {
     const children = Array.from(invite.querySelector('.invite__inner').children);
 
@@ -466,61 +390,117 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     CLICK ROUTING
-     Determine left / right / center based on click x position.
+     F. HINT SYSTEM
      ════════════════════════════════════════════════════════════════ */
-  function routeClick(e) {
-    if (state.left === 2 && state.right === 2) return;
 
-    const ratio = e.clientX / window.innerWidth;
-    const halfBand = CENTER_BAND / 2;
-    const mid      = 0.5;
+  function scheduleHint(msg) {
+    clearTimeout(hintTimer);
+    if (msg) hintText.textContent = msg;
+    hintTimer = setTimeout(showHint, HINT_DELAY);
+  }
 
-    if (ratio < mid - halfBand) {
-      advanceLeft();
-    } else if (ratio > mid + halfBand) {
-      advanceRight();
-    } else {
-      // center band — pick a side that still has curtain to advance
-      const canLeft  = state.left  < 2 && !busy.left;
-      const canRight = state.right < 2 && !busy.right;
+  function showHint() {
+    hint.setAttribute('aria-hidden', 'false');
+    gsap.to(hint, { opacity: 1, duration: 0.8, ease: 'power2.out' });
+  }
 
-      if (canLeft && canRight) {
-        Math.random() < 0.5 ? advanceLeft() : advanceRight();
-      } else if (canLeft)  {
-        advanceLeft();
-      } else if (canRight) {
-        advanceRight();
-      }
+  function hideHint() {
+    clearTimeout(hintTimer);
+    gsap.to(hint, {
+      opacity: 0, duration: 0.3, ease: 'power2.in',
+      onComplete: () => hint.setAttribute('aria-hidden', 'true'),
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     G. CLICK ROUTING & EVENTS
+     ════════════════════════════════════════════════════════════════ */
+
+  function routeClick() {
+    advance();
+  }
+
+  function buildRings() {
+    const count = Math.floor(window.innerWidth / 50);
+    for (let i = 0; i < count; i++) {
+      const ring = document.createElement('div');
+      ring.className = 'curtain-rod__ring';
+      ringsEl.appendChild(ring);
+    }
+  }
+
+  function buildSparkles() {
+    const container = document.getElementById('sparkles');
+    for (let i = 0; i < 50; i++) {
+      const s = document.createElement('div');
+      s.className = 'sparkle';
+      const size  = Math.random() * 4 + 2;
+      const x     = Math.random() * 100;
+      const y     = Math.random() * 100;
+      const dur   = Math.random() * 4 + 2;
+      const delay = Math.random() * 8;
+      const peak  = (Math.random() * 0.5 + 0.3).toFixed(2);
+      s.style.cssText = `width:${size}px;height:${size}px;left:${x}%;top:${y}%;--twinkle-dur:${dur}s;--twinkle-delay:${delay}s;--twinkle-peak:${peak};`;
+      container.appendChild(s);
+    }
+  }
+
+  function buildBokeh() {
+    const container = document.getElementById('bokeh');
+    for (let i = 0; i < 8; i++) {
+      const orb = document.createElement('div');
+      orb.className = 'bokeh-orb';
+      const size  = Math.random() * 120 + 60;
+      const x     = Math.random() * 90 + 5;
+      const y     = Math.random() * 80 + 10;
+      const dur   = Math.random() * 10 + 10;
+      const delay = Math.random() * 8;
+      const dx    = (Math.random() - 0.5) * 60;
+      const dy    = (Math.random() - 0.5) * 40;
+      orb.style.cssText = `width:${size}px;height:${size}px;left:${x}%;top:${y}%;--bokeh-dur:${dur}s;--bokeh-delay:${delay}s;--bokeh-dx:${dx}px;--bokeh-dy:${dy}px;`;
+      container.appendChild(orb);
+    }
+  }
+
+  function buildParticles() {
+    const container = document.getElementById('particles');
+    for (let i = 0; i < 30; i++) {
+      const p     = document.createElement('div');
+      p.className = 'particle';
+      const size  = Math.random() * 3 + 1;
+      const left  = Math.random() * 100;
+      const dur   = Math.random() * 8 + 5;
+      const delay = Math.random() * 12;
+      const drift = (Math.random() - 0.5) * 120;
+      p.style.cssText = `width:${size}px;height:${size}px;left:${left}%;--dur:${dur}s;--delay:${delay}s;--drift:${drift}px;`;
+      container.appendChild(p);
     }
   }
 
   /* ════════════════════════════════════════════════════════════════
-     EVENTS
+     INIT
      ════════════════════════════════════════════════════════════════ */
-  function bindEvents() {
-    // Route all clicks on the curtain wrap
+
+  function init() {
+    buildRings();
+    buildSparkles();
+    buildBokeh();
+    buildParticles();
+    initThree();
+    animate();
+    scheduleHint();
+
     curtainWrap.style.pointerEvents = 'auto';
-    curtainWrap.addEventListener('click', routeClick);
+    renderer.domElement.addEventListener('click', routeClick);
 
-    // Keyboard: Enter/Space on focused panel
-    curtainLeft.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advanceLeft(); }
-    });
-    curtainRight.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); advanceRight(); }
-    });
-
-    // Reset hint timer on first user activity
     ['mousemove', 'touchstart'].forEach((evt) => {
       document.addEventListener(evt, () => {
-        if (state.left === 2 && state.right === 2) return;
+        if (stage >= 3) return;
         scheduleHint();
       }, { once: true });
     });
   }
 
-  /* ── Boot ─────────────────────────────────────────────────────── */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
