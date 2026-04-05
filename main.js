@@ -286,7 +286,7 @@
      Click 3: Both curtains fly open — full reveal
      ════════════════════════════════════════════════════════════════ */
 
-  const PEEK_AMOUNT = PANEL_W * 0.15;
+  const PEEK_AMOUNT = PANEL_W * 0.10;
   const OPEN_AMOUNT = PANEL_W * 1.5;
 
   function advance() {
@@ -376,7 +376,7 @@
   function revealInvite() {
     const children = Array.from(invite.querySelector('.invite__inner').children);
 
-    gsap.to('.curtain-rod', { y: 8, duration: 1.2, ease: 'power3.out' });
+    gsap.to('.curtain-rod', { y: -40, opacity: 0, duration: 1.0, ease: 'power3.in' });
 
     gsap.to('.spotlight', {
       opacity: 1, duration: 1.4, stagger: 0.2, ease: 'power2.out',
