@@ -19,7 +19,7 @@
   const invite       = document.getElementById('invite');
   const ringsEl      = document.querySelector('.curtain-rod__rings');
 
-  let stage = 0;   // 0 = closed, 1 = left peeked, 2 = right peeked, 3 = fully open
+  let stage = 0;   // 0 = closed, 1 = peeked (both sides), 2 = fully open
   let busy  = false;
 
   let hintTimer    = null;
@@ -279,64 +279,53 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     D. INTERACTION — 3-STAGE SEQUENTIAL REVEAL
+     D. INTERACTION — 2-STAGE REVEAL
 
-     Click 1: Left curtain peeks — text half-visible
-     Click 2: Right curtain peeks — text peeking both sides
-     Click 3: Both curtains fly open — full reveal
+     Load:   Both curtains peek open 10%
+     Click:  Both curtains fly open — full reveal
      ════════════════════════════════════════════════════════════════ */
 
   const PEEK_AMOUNT = PANEL_W * 0.10;
   const OPEN_AMOUNT = PANEL_W * 1.5;
 
-  function advance() {
-    if (busy || stage >= 3) return;
-    hideHint();
-
-    if (stage === 0)      peekLeft();
-    else if (stage === 1) peekRight();
-    else if (stage === 2) openBoth();
-  }
-
-  function peekLeft() {
+  function initialPeek() {
     busy = true;
-    stage = 1;
 
-    const target = { x: 0 };
-    gsap.to(target, {
-      x: -PEEK_AMOUNT,
-      duration: 2.5,
-      ease: 'power2.inOut',
-      onUpdate: () => leftCloth.setPinOffset(target.x),
+    const leftTarget  = { x: 0 };
+    const rightTarget = { x: 0 };
+
+    const tl = gsap.timeline({
       onComplete: () => {
+        stage = 1;
         busy = false;
-        teasInvite(0.15);
-        scheduleHint('Click again to peek the other side');
-      },
-    });
-  }
-
-  function peekRight() {
-    busy = true;
-    stage = 2;
-
-    const target = { x: 0 };
-    gsap.to(target, {
-      x: PEEK_AMOUNT,
-      duration: 2.5,
-      ease: 'power2.inOut',
-      onUpdate: () => rightCloth.setPinOffset(target.x),
-      onComplete: () => {
-        busy = false;
-        teasInvite(0.35);
         scheduleHint('Click to reveal');
       },
     });
+
+    tl.to(leftTarget, {
+      x: -PEEK_AMOUNT,
+      duration: 2.5,
+      ease: 'power2.inOut',
+      onUpdate: () => leftCloth.setPinOffset(leftTarget.x),
+    }, 0);
+
+    tl.to(rightTarget, {
+      x: PEEK_AMOUNT,
+      duration: 2.5,
+      ease: 'power2.inOut',
+      onUpdate: () => rightCloth.setPinOffset(rightTarget.x),
+    }, 0.3);
+  }
+
+  function advance() {
+    if (busy || stage >= 2) return;
+    hideHint();
+    openBoth();
   }
 
   function openBoth() {
     busy = true;
-    stage = 3;
+    stage = 2;
 
     const leftCurrent  = leftCloth.particles[0].pinTarget.x - leftCloth.particles[0].original.x;
     const rightCurrent = rightCloth.particles[0].pinTarget.x - rightCloth.particles[0].original.x;
@@ -367,15 +356,7 @@
     }, 0.15);
   }
 
-  function teasInvite(opacity) {
-    gsap.to(Array.from(invite.querySelector('.invite__inner').children), {
-      opacity: opacity, y: 0, duration: 0.8, stagger: 0.08, ease: 'power2.out',
-    });
-  }
-
   function revealInvite() {
-    const children = Array.from(invite.querySelector('.invite__inner').children);
-
     gsap.to('.curtain-rod', { y: -40, opacity: 0, duration: 1.0, ease: 'power3.in' });
 
     gsap.to('.spotlight', {
@@ -383,10 +364,6 @@
     });
 
     gsap.to('.particle', { opacity: 1, duration: 0.01 });
-
-    gsap.to(children, {
-      opacity: 1, y: 0, duration: 0.75, stagger: 0.13, ease: 'power3.out',
-    });
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -429,22 +406,6 @@
     }
   }
 
-  function buildSparkles() {
-    const container = document.getElementById('sparkles');
-    for (let i = 0; i < 50; i++) {
-      const s = document.createElement('div');
-      s.className = 'sparkle';
-      const size  = Math.random() * 4 + 2;
-      const x     = Math.random() * 100;
-      const y     = Math.random() * 100;
-      const dur   = Math.random() * 4 + 2;
-      const delay = Math.random() * 8;
-      const peak  = (Math.random() * 0.5 + 0.3).toFixed(2);
-      s.style.cssText = `width:${size}px;height:${size}px;left:${x}%;top:${y}%;--twinkle-dur:${dur}s;--twinkle-delay:${delay}s;--twinkle-peak:${peak};`;
-      container.appendChild(s);
-    }
-  }
-
   function buildBokeh() {
     const container = document.getElementById('bokeh');
     for (let i = 0; i < 8; i++) {
@@ -483,19 +444,18 @@
 
   function init() {
     buildRings();
-    buildSparkles();
     buildBokeh();
     buildParticles();
     initThree();
     animate();
-    scheduleHint();
+    initialPeek();
 
     curtainWrap.style.pointerEvents = 'auto';
     renderer.domElement.addEventListener('click', routeClick);
 
     ['mousemove', 'touchstart'].forEach((evt) => {
       document.addEventListener(evt, () => {
-        if (stage >= 3) return;
+        if (stage >= 2) return;
         scheduleHint();
       }, { once: true });
     });
